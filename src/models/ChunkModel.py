@@ -5,17 +5,37 @@ from bson.objectid import ObjectId
 from pymongo import InsertOne
  
 class ChunkModel(BaseDataModel):
-    def __init__(self , db_client : object) : 
+   def __init__(self , db_client : object) : 
         super().__init__(db_client=db_client)
         self.collection = self.db_client[DataBaseEnum.COLLECTION_CHUNK_NAME.value]
+   
+   @classmethod
+   async def create_instance(cls,db_client:object) :
+        instance = cls(db_client)
+        await instance.init_collection()
+        return instance
+      
+   async def init_collection(self) :
+        all_collections = await self.db_client.list_collection_names()  
+        if DataBaseEnum.COLLECTION_CHUNK_NAME.value not in all_collections :
+            self.collection = self.db_client[DataBaseEnum.COLLECTION_CHUNK_NAME.value]
+            indexes=DataChunk.get_indexes()
+            for index in indexes : 
+                await self.collection.create_index(
+                    index["key"],
+                    name=index["name"],
+                    unique=index["unique"]
+            )
+      
+   
     
-    async def create_chunk(self , chunk : DataChunk) :  # je prends chunk de type DataChunk pour l'insérer dans la base de donnée
+   async def create_chunk(self , chunk : DataChunk) :  # je prends chunk de type DataChunk pour l'insérer dans la base de donnée
        
        result = await self.collection.insert_one(chunk.dict(by_alias=True,exclude_unset=True)) # je l'insère dans la base de donnée mais je dois d'abord transformer chunk en dictionnaire
        chunk._id = result.inserted_id #je récupère l'id généré par mongodb et je l'ajoute dans chunk
        return chunk
     
-    async def get_chunk(self, chunk_id : str ) :
+   async def get_chunk(self, chunk_id : str ) :
        result = await self.collection.find_one({
           "_id" : ObjectId(chunk_id) 
        })
@@ -25,7 +45,7 @@ class ChunkModel(BaseDataModel):
     
        return DataChunk(**result) #** sert à transformer un dictionnaire en argument de fonction 
     
-    async def insert_many_chunks (self , chunks : list , batch_size : int=100 ) :       
+   async def insert_many_chunks (self , chunks : list , batch_size : int=100 ) :       
        
         for i in range(0,len(chunks) , batch_size) : 
           batch = chunks[i:i+batch_size]
@@ -39,7 +59,7 @@ class ChunkModel(BaseDataModel):
 
         return len(chunks)     
     
-    async def delete_chunks_by_project_id(self,project_id :ObjectId) :
+   async def delete_chunks_by_project_id(self,project_id :ObjectId) :
        
        result =await self.collection.delete_many({
           "chunk_project_id" : project_id
