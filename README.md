@@ -35,5 +35,3 @@ Download the POSTMAN collection from [/assets/mini-rag-app.postman_collection.js
 
 
 
-
-
